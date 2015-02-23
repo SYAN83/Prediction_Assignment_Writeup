@@ -1,0 +1,81 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Shu Yan"
+date: "February 22, 2015"
+output: html_document
+---
+
+##Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. In this project, we will be performing maching learning algorithms to predict the correctness of barbell lifting based on data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+##Data preprocessing
+We first load the training data set from the given *URL*. It is resonable to believe that the prediction only depends on the body motions. Therefore we only select predictors coming from the data of the sensors. Meanwhile we should remove predictors that contain any *NA*s. (fortunately, we don't have any after the first cleaning step)
+
+```{r preprocessing}
+urlTrain <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+pmlTrain <- read.csv(urlTrain,na.strings=c("NA", "#DIV/0!"))
+feature <- c(grep("belt_x|arm_x|bell_x|belt_y|arm_y|bell_y|belt_z|arm_z|bell_z",
+                  names(pmlTrain)),length(pmlTrain))
+pmlTrain <- pmlTrain[,feature]
+#pmlTrain <- pmlTrain[-which(sapply(pmlTrain,anyNA))]
+urlTest  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+pmlTest  <- read.csv(urlTest,na.strings=c("NA", "#DIV/0!"))
+pmlTest  <- pmlTest[-which(sapply(pmlTest,anyNA))]
+
+```
+
+##data visualization
+Our data now contains 12 features, each of which has 3 spacial components, we can visualize the features in 3D plots. Here we randomly select a small portion of all observations. (Note that the figures are not drawn on same scales.)
+```{r visualization, fig.align='center',fig.width=8}
+library(lattice)
+vis <- sample(1:19622,500)
+i <- 1
+has_more = TRUE
+par.set <-
+    list(axis.line = list(col = "transparent"),
+         clip = list(panel = "off"))
+while(i < length(pmlTrain)-1) {
+    if(i > 33) {
+        has_more = FALSE
+    }
+    j = (i+2)/3
+    str <- names(pmlTrain[i])
+    print(cloud(pmlTrain[vis,i+2] ~ pmlTrain[vis,i] * pmlTrain[vis,i+1], 
+            data = pmlTrain[vis,], cex = .2, 
+            groups = classe, 
+            xlab = "x", ylab = "y", zlab = "z",
+            main = substr(str, 1, nchar(str)-2),
+            screen = list(z = 20, x = -70, y = 3),
+            par.settings = par.set,
+            scales = list(col = "black")),
+          split = c((j-1)%%4+1,ceiling(j/4),4,3), more = has_more)
+    i = i + 3
+}
+```
+
+##Data slicing
+The data sets are splitted into training set and testing set as follow
+```{r slicing}
+library(caret)
+inTrain <- createDataPartition(y=pmlTrain$classe, p=.7, list=FALSE)
+training <- pmlTrain[inTrain,]
+testing  <- pmlTrain[-inTrain,]
+dim(training); dim(testing)
+```
+
+##Data training
+The **rpart** is fast but gives poor prediction. Here we will be using **gbm** method, which is accurate but quite time consuming.
+```{r train & predict}
+library(caret)
+modFit <- train(classe~., method="gbm",data=training,verbose=FALSE)
+predicted <- predict(modFit,newdata=testing)
+confusionMatrix(predicted,testing$classe)
+```
+
+##Predict
+Finally we use the test data set for prediction
+```{r}
+predict(modFit,newdata=pmlTest)
+```
+
