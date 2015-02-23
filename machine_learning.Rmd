@@ -22,7 +22,6 @@ pmlTrain <- pmlTrain[,feature]
 urlTest  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 pmlTest  <- read.csv(urlTest,na.strings=c("NA", "#DIV/0!"))
 pmlTest  <- pmlTest[-which(sapply(pmlTest,anyNA))]
-
 ```
 
 ##data visualization
@@ -66,7 +65,7 @@ dim(training); dim(testing)
 
 ##Data training
 The **rpart** is fast but gives poor prediction. Here we will be using **gbm** method, which is accurate but quite time consuming.
-```{r train & predict}
+```{r train and verify}
 library(caret)
 modFit <- train(classe~., method="gbm",data=training,verbose=FALSE)
 predicted <- predict(modFit,newdata=testing)
@@ -75,7 +74,7 @@ confusionMatrix(predicted,testing$classe)
 
 ##Predict
 Finally we use the test data set for prediction
-```{r}
+```{r predict}
 predict(modFit,newdata=pmlTest)
 ```
 
