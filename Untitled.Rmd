@@ -1,0 +1,44 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Shu Yan"
+date: "February 22, 2015"
+output: html_document
+---
+
+##Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. In this project, we will be performing maching learning algorithms to predict the correctness of barbell lifting based on data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+##Data preprocessing
+We first load the training data and test data from the given *URL*s. It is resonable to believe that the prediction only depends on the body motion. Therefore we only select predictors coming from the sensors' data. Meanwhile we should remove predictors that contain any *NA*s (fortunately, we don't have any after the first step)
+
+```{r}
+urlTrain <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+urlTest  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+pmlTrain <- read.csv(urlTrain,na.strings=c("NA", "#DIV/0!"))
+pmlTest  <- read.csv(urlTest,na.strings=c("NA", "#DIV/0!"))
+
+feature <- c(grep("belt_x|arm_x|bell_x|belt_y|arm_y|bell_y|belt_z|arm_z|bell_z",
+                  names(pmlTrain)),length(pmlTest))
+pmlTrain <- pmlTrain[,feature]
+pmlTest <- pmlTest[,feature]
+#pmlTrain <- pmlTrain[-which(sapply(pmlTrain,anyNA))]
+#pmlTest <- pmlTest[-which(sapply(pmlTest,anyNA))]
+```
+
+We will using "gbm" to train the data. The training-testing split is not needed here, the code is given for reference only.
+```{r}
+#inTrain <- createDataPartition(y=pmlTrain$classe, p=.7, list=FALSE)
+#training <- pmlTrain[inTrain,]
+#testing  <- pmlTrain[-inTrain,]
+#dim(training); dim(testing)
+```
+
+The **rpart** is fast but gives poor prediction. Here we will be using "gbm" method, which is accurate but quite time consuming.
+```{r}
+library(caret)
+modFit <- train(classe~., method="gbm",data=pmlTrain,verbose=FALSE)
+predcted <- predict(modFit,newdata=pmlTest)
+confusionMatrix(predicted,pmlTest$classe)
+```
+
