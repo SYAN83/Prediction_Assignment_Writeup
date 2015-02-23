@@ -19,35 +19,36 @@ feature <- c(grep("belt_x|arm_x|bell_x|belt_y|arm_y|bell_y|belt_z|arm_z|bell_z",
                   names(pmlTrain)),length(pmlTrain))
 pmlTrain <- pmlTrain[,feature]
 #pmlTrain <- pmlTrain[-which(sapply(pmlTrain,anyNA))]
+
 urlTest  <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 pmlTest  <- read.csv(urlTest,na.strings=c("NA", "#DIV/0!"))
 pmlTest  <- pmlTest[-which(sapply(pmlTest,anyNA))]
+
+###uncomment the following two lines to test the source code in a small portion
+#vis <- sample(1:dim(pmlTrain)[1],1000)
+#pmlTrain <- pmlTrain[sort(vis),]
 ```
 
 ##data visualization
 Our data now contains 12 features, each of which has 3 spacial components, we can visualize the features in 3D plots. Here we randomly select a small portion of all observations. (Note that the figures are not drawn on same scales.)
 ```{r visualization, fig.align='center',fig.width=8}
 library(lattice)
-vis <- sample(1:19622,500)
+vis <- sample(1:dim(pmlTrain)[1],500)
 i <- 1
 has_more = TRUE
-par.set <-
-    list(axis.line = list(col = "transparent"),
-         clip = list(panel = "off"))
-while(i < length(pmlTrain)-1) {
+par.set <- list(axis.line = list(col = "transparent"), clip = list(panel = "off"))
+while(has_more) {
     if(i > 33) {
         has_more = FALSE
     }
     j = (i+2)/3
     str <- names(pmlTrain[i])
     print(cloud(pmlTrain[vis,i+2] ~ pmlTrain[vis,i] * pmlTrain[vis,i+1], 
-            data = pmlTrain[vis,], cex = .2, 
-            groups = classe, 
+            data = pmlTrain[vis,], cex = .2, groups = classe, 
             xlab = "x", ylab = "y", zlab = "z",
             main = substr(str, 1, nchar(str)-2),
             screen = list(z = 20, x = -70, y = 3),
-            par.settings = par.set,
-            scales = list(col = "black")),
+            par.settings = par.set, scales = list(col = "black")),
           split = c((j-1)%%4+1,ceiling(j/4),4,3), more = has_more)
     i = i + 3
 }
@@ -64,17 +65,30 @@ dim(training); dim(testing)
 ```
 
 ##Data training
-The **rpart** is fast but gives poor prediction. Here we will be using **gbm** method, which is accurate but quite time consuming.
+The **rpart** is fast but gives poor prediction. Here we will be using **gbm** and **rf** methods, which are more accurate but also very time consuming.
 ```{r train and verify}
 library(caret)
-modFit <- train(classe~., method="gbm",data=training,verbose=FALSE)
-predicted <- predict(modFit,newdata=testing)
-confusionMatrix(predicted,testing$classe)
+gbmFit <- train(classe~., method="gbm",data=training,verbose=FALSE)
+gbmPred <- predict(gbmFit,newdata=testing)
+confusionMatrix(gbmPred,testing$classe)
+rfFit<-train(classe~.,data=training,method="rf",
+                trControl=trainControl(method="cv",number=5),
+                prox=TRUE,allowParallel=TRUE)
+rfPred <- predict(rfFit,newdata=testing)
+confusionMatrix(rfPred,testing$classe)
+
+accuracy <- function(test, pred) {
+    acc <- sum(test==pred)/length(test)
+    return(acc)
+}
 ```
 
-##Predict
-Finally we use the test data set for prediction
+The accuracy for **gbm** is `r accuracy(gbmPred,testing$classe)` and for **rf** is `r accuracy(rfPred,testing$classe)`. The latter is pretty accurate.
+
+##Predicting
+Finally we use the two trained models to predict the given test data set
 ```{r predict}
-predict(modFit,newdata=pmlTest)
+predict(gbmFit,newdata=pmlTest)
+predict(rfFit,newdata=pmlTest)
 ```
 
